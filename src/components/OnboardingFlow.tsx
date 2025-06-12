@@ -10,15 +10,49 @@ const OnboardingFlow = () => {
   const [currentStep, setCurrentStep] = useState<OnboardingStep>('auth');
   const [displayName, setDisplayName] = useState('');
   const [isAuthenticating, setIsAuthenticating] = useState(false);
+  const [authError, setAuthError] = useState('');
 
   const handleBiometricAuth = async () => {
     setIsAuthenticating(true);
+    setAuthError('');
     
-    // Simulate biometric authentication and wallet creation
-    await new Promise(resolve => setTimeout(resolve, 2500));
+    try {
+      // Check if WebAuthn is supported
+      if (!window.PublicKeyCredential) {
+        throw new Error('Biometric authentication not supported on this device');
+      }
+
+      // Create a simple credential request for local authentication
+      const credential = await navigator.credentials.create({
+        publicKey: {
+          challenge: new Uint8Array(32),
+          rp: { name: "Omni-Life" },
+          user: {
+            id: new Uint8Array(16),
+            name: "user@omni-life.app",
+            displayName: "Omni-Life User",
+          },
+          pubKeyCredParams: [{ alg: -7, type: "public-key" }],
+          authenticatorSelection: {
+            authenticatorAttachment: "platform",
+            userVerification: "required"
+          },
+          timeout: 60000,
+          attestation: "direct"
+        }
+      });
+
+      if (credential) {
+        // Simulate wallet creation
+        await new Promise(resolve => setTimeout(resolve, 1500));
+        setCurrentStep('display-name');
+      }
+    } catch (error) {
+      console.error('Authentication error:', error);
+      setAuthError('Authentication failed. Please try again.');
+    }
     
     setIsAuthenticating(false);
-    setCurrentStep('display-name');
   };
 
   const handleDisplayNameSubmit = () => {
@@ -27,7 +61,6 @@ const OnboardingFlow = () => {
       
       // Auto-enter app after a brief moment
       setTimeout(() => {
-        // Here you would navigate to the main app
         console.log('Entering app for user:', displayName);
       }, 1500);
     }
@@ -62,6 +95,10 @@ const OnboardingFlow = () => {
           <p className="text-gray-600 text-sm">
             {isAuthenticating ? 'Creating wallet...' : 'Tap to authenticate'}
           </p>
+          
+          {authError && (
+            <p className="text-red-500 text-xs mt-2">{authError}</p>
+          )}
         </div>
       </div>
     );
